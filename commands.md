@@ -21,3 +21,6 @@ openssl rsautl -encrypt -inkey public.pem -pubin -in file.txt -out file.ssl
 ```
 openssl rsautl -decrypt -inkey private.pem -in file.ssl -out decrypted.txt
 ```
+
+
+https://www.devco.net/archives/2006/02/13/public_-_private_key_encryption_using_openssl.php

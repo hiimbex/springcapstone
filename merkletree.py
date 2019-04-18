@@ -1,70 +1,71 @@
 import hashlib, json
 from collections import OrderedDict
+from keymaker import *
+import datetime
+import merkletools
 
-class Merkle_Tree:
-  def __init__(self):
-    self.transaction_list = None
-    self.past_transaction = OrderedDict()
+class Transaction:
+  def __init__(self, who, what, when):
+    self.who = who
+    self.what = what
+    self.when = when
 
-  def set_transaction_list(self, transaction_list):
-      self.transaction_list = transaction_list
-      return transaction_list
+  def format_data(self):
+    # data must be byte string
+    data = {'Timestamp': self.when, 'Data': self.what}
+    string_byte_data = json.dumps(data, default=str).encode()
+    return string_byte_data
 
-  def generate_tree(self):
-    transaction_list = self.transaction_list
-    past_transaction = self.past_transaction
-    temp_transaction = []
+  def sign(self):
+    string_byte_data = self.format_data()
+    # sign the data
+    signature = self.who.get('key', '').sign_data(string_byte_data)
+    return signature, string_byte_data
 
-    # loop by 2s to get the left element
-    for i in range(0, len(transaction_list), 2):
-      # get left child
-      element = transaction_list[i]
-      # if more elements remain, go to next element
-      if i + 1 < len(transaction_list):
-        element_right = transaction_list[i + 1]
-      # if no elements remain we reached the end
-      else:
-        element_right = ''
-      # hash
-      element_hash = hashlib.sha256(element)
-      # add transaction of element addition
-      past_transaction[transaction_list[i]] = element_hash.hexdigest()
-      # if not at end hash right element, add transaction and temp_transaction
-      if element_right != '':
-        element_right_hash = hashlib.sha256(element_right)
-        past_transaction[transaction_list[i + 1]] = element_right_hash.hexdigest()
-        temp_transaction.append(element_hash.hexdigest() + element_right_hash.hexdigest())
-      # if at end add current element temp_transaction
-      else:
-        temp_transaction.append(element_hash.hexdigest())
-    # while not gone through every transaction, add transactions
-    if len(transaction_list) != 1:
-      self.transaction_list = temp_transaction
-      self.past_transaction = past_transaction
-      self.generate_tree()
+  def verify(self, sig):
+    string_byte_data = self.format_data()
+    return self.who.get('key', '').verify_data(string_byte_data, sig)
 
-  def get_past_transaction(self):
-    return self.past_transaction
-
-  def get_root(self):
-    last_key = self.past_transaction.keys()[-1]
-    return self.past_transaction[last_key]
+def sign_transaction(data, signature):
+    return data + signature
 
 if __name__ == "__main__":
-  tree = Merkle_Tree()
-  tree.set_transaction_list(['hi','hello','hey','sup'])
-  tree.generate_tree()
+  # sign root of merkle tree with company key
+  # print out root hash, tree head signature, timestamp, tree size
 
-  tampered_tree = Merkle_Tree()
-  tampered_tree.set_transaction_list(['hi','hello','hey','goodbye'])
-  tampered_tree.generate_tree()
+  # make an employee's key (at some point need to check if company or employee and get relvant signature ??)
 
-  print 'Non-tampered tree past transactions: ', tree.get_past_transaction(), '\n'
-  print 'Tampered tree past transactions: ', tampered_tree.get_past_transaction(), '\n'
-  print 'Final root of the valid tree : ', tree.get_root(), '\n'
-  print 'Final root of the tampered tree : ', tampered_tree.get_root(), '\n'
+  employeeA = {'id': '1234', 'key': MasterKey()}
+  transaction = Transaction(employeeA, 'insert on customer database', datetime.datetime.now())
+  signature, data = transaction.sign()
+  # combine them
+  signed_transaction = sign_transaction(data, signature)
 
+  employeeB = {'id': '1234', 'key': MasterKey()}
+  diff_transaction = Transaction(employeeB, 'insert on shipping database', datetime.datetime.now())
+  diff_signature, diff_data = diff_transaction.sign()
+  # combine them
+  diff_signed_transaction = sign_transaction(diff_data, diff_signature)
 
-  transactionz = { 'my message': 'author sig?', 'hello world!': '123abc'}
+  mt = merkletools.MerkleTools()
+  mt.add_leaf(signed_transaction.hex())
+  mt.add_leaf(diff_signed_transaction.hex())
+  mt.make_tree()
+  root = mt.get_merkle_root()
 
-  # 'hello world!\n123abc'
+  print(mt.validate_proof(mt.get_proof(0), mt.get_leaf(0), root))
+  hashed_value = mt.get_leaf(0)
+  print(employeeA.get('key', '').verify_data(transaction.format_data(), signature))
+
+  # verify Signature
+  def verify_sig(mt, index, employee, signed_transaction):
+    if (mt.validate_proof(mt.get_proof(index), mt.get_leaf(index), mt.get_merkle_root())):
+      print('valid merkle tree')
+      if (signed_transaction.hex() == mt.get_leaf(index)):
+        print('valid signature')
+        return True
+    return False
+
+  verifyA = verify_sig(mt, 0, employeeA, signed_transaction)
+  verifyB = verify_sig(mt, 1, employeeB, diff_signed_transaction)
+  print(verifyA, verifyB)

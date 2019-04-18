@@ -3,6 +3,7 @@ from collections import OrderedDict
 from keymaker import *
 import datetime
 import merkletools
+from employees import Employee
 
 class Transaction:
   def __init__(self, who, what, when):
@@ -32,19 +33,18 @@ def sign_transaction(data, signature):
 if __name__ == "__main__":
   # sign root of merkle tree with company key
   # print out root hash, tree head signature, timestamp, tree size
-
   # make an employee's key (at some point need to check if company or employee and get relvant signature ??)
 
-  employeeA = {'id': '1234', 'key': MasterKey()}
-  transaction = Transaction(employeeA, 'insert on customer database', datetime.datetime.now())
+  employeeA = Employee()
+  transaction = Transaction({'id': employeeA.get_id(), 'key': employeeA.get_key()},
+                             'insert on customer database', datetime.datetime.now())
   signature, data = transaction.sign()
-  # combine them
   signed_transaction = sign_transaction(data, signature)
 
-  employeeB = {'id': '1234', 'key': MasterKey()}
-  diff_transaction = Transaction(employeeB, 'insert on shipping database', datetime.datetime.now())
+  employeeB = Employee()
+  diff_transaction = Transaction({'id': employeeB.get_id(), 'key': employeeB.get_key()},
+                                   'insert on shipping database', datetime.datetime.now())
   diff_signature, diff_data = diff_transaction.sign()
-  # combine them
   diff_signed_transaction = sign_transaction(diff_data, diff_signature)
 
   mt = merkletools.MerkleTools()
@@ -53,19 +53,17 @@ if __name__ == "__main__":
   mt.make_tree()
   root = mt.get_merkle_root()
 
-  print(mt.validate_proof(mt.get_proof(0), mt.get_leaf(0), root))
-  hashed_value = mt.get_leaf(0)
-  print(employeeA.get('key', '').verify_data(transaction.format_data(), signature))
-
-  # verify Signature
-  def verify_sig(mt, index, employee, signed_transaction):
-    if (mt.validate_proof(mt.get_proof(index), mt.get_leaf(index), mt.get_merkle_root())):
+  # verify signature
+  def verify_sig(mt, index, employee, transaction):
+    if (mt.validate_proof(mt.get_proof(index),
+        mt.get_leaf(index), mt.get_merkle_root())):
       print('valid merkle tree')
-      if (signed_transaction.hex() == mt.get_leaf(index)):
+      if (transaction[0].hex() == mt.get_leaf(index) and
+          employee.get_key().verify_data(transaction[1], transaction[2])):
         print('valid signature')
         return True
     return False
 
-  verifyA = verify_sig(mt, 0, employeeA, signed_transaction)
-  verifyB = verify_sig(mt, 1, employeeB, diff_signed_transaction)
+  verifyA = verify_sig(mt, 0, employeeA, [signed_transaction, data, signature])
+  verifyB = verify_sig(mt, 1, employeeB, [diff_signed_transaction, diff_data, diff_signature])
   print(verifyA, verifyB)

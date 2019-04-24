@@ -9,8 +9,6 @@ from keymaker import *
 from employees import Employee
 
 # Transaction class
-
-
 class Transaction:
     def __init__(self, who, what, when):
         self.who = who
@@ -35,14 +33,10 @@ class Transaction:
         return self.who.get('key', '').verify_data(string_byte_data, sig)
 
 # combine the signature with the data from the transaction
-
-
 def sign_transaction(data, signature):
     return data + signature
 
 # verify signature
-
-
 def verify_sig(mt, index, employee, transaction):
     if (mt.validate_proof(mt.get_proof(index),
                           mt.get_leaf(index), mt.get_merkle_root())):
@@ -57,7 +51,6 @@ def verify_sig(mt, index, employee, transaction):
     else:
         print('invalid merkle tree')
         return False
-
 
 if __name__ == "__main__":
     # instantiate merkle tree

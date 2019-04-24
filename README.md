@@ -1,4 +1,4 @@
-# sSpring Capstone - Signature Encryption Using Merkle Trees
+# Spring Capstone - Signature Encryption Using Merkle Trees
 
 To install dependencies:
 

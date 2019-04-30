@@ -17,7 +17,7 @@ class Transaction:
 
     def format_data(self):
         # data must be byte string
-        data = {'Timestamp': self.when, 'Data': self.what}
+        data = {'Timestamp': self.when, 'Data': self.what, 'ID': self.who.get('id', '')}
         string_byte_data = json.dumps(data, default=str).encode()
         return string_byte_data
 
@@ -33,8 +33,8 @@ class Transaction:
         return self.who.get('key', '').verify_data(string_byte_data, sig)
 
 # combine the signature with the data from the transaction
-def sign_transaction(data, signature):
-    return data + signature
+def sign_transaction(data, ID, signature):
+    return data + ID + signature
 
 # verify signature
 def verify_sig(mt, index, employee, transaction):
@@ -86,16 +86,22 @@ if __name__ == "__main__":
                                   random.choice(db_entries), datetime.datetime.now())
         # create signature
         signature, data = transaction.sign()
-        # add signature to transaction
-        signed_transaction = sign_transaction(data, signature)
-        # store combined signature and transaction to merkle tree
-        mt.add_leaf(signed_transaction.hex())  # library requires hex data
+        # verify signature
+        if transaction.verify(signature):
+            # generate unique ID
+            unique_ID = json.dumps(random.randint(10000, 99999), default=str).encode()
+            # add signature to transaction
+            signed_transaction = sign_transaction(data, unique_ID, signature)
+            # store combined signature and transaction to merkle tree
+            mt.add_leaf(signed_transaction.hex())  # library requires hex data
 
-        # randomly save the fifth signature to be verified
-        if i == 5:
-            sample_index = 5
-            sample_employee = employee
-            sample_transaction = [signed_transaction, data, signature]
+            # randomly save the fifth signature to be verified
+            if i == 5:
+                sample_index = 5
+                sample_employee = employee
+                sample_transaction = [signed_transaction, data, signature]
+        else:
+            print('unverified signature: not added to tree')
 
     # generate merkle tree
     mt.make_tree()
